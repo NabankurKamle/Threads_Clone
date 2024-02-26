@@ -1,7 +1,8 @@
 import { currentUser } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 
 import AccountProfile from "@/components/forms/AccountProfile";
-import { log } from "console";
+import { fetchUser } from "@/lib/actions/user.actions";
 
 interface UserInfo {
   _id?: string;
@@ -9,17 +10,20 @@ interface UserInfo {
   name?: string;
   bio?: string;
   image?: string;
+  onboarded?: boolean;
 }
 
 const Page = async () => {
   const user = await currentUser();
+  if (!user) return null;
 
-  const userInfo: UserInfo = {};
+  const userInfo: UserInfo = await fetchUser(user.id);
+  if (userInfo?.onboarded) redirect("/");
 
   const userData = {
     id: user?.id || "",
     objectId: userInfo?._id || "",
-    username: userInfo?.username || user?.username || "",
+    username: (userInfo ? userInfo?.username : user?.username) || "",
     name: userInfo?.name || user?.firstName || "",
     bio: userInfo?.bio || "",
     image: userInfo?.image || user?.imageUrl || "",

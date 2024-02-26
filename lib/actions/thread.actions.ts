@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { connectToDB } from "../db";
 import Thread from "../models/thread.model";
 import User from "../models/user.model";
+import Community from "../models/community.model";
 
 interface CreateThreadParams {
   text: string;
@@ -38,6 +39,11 @@ export const fetchThreads = async (pageNumber = 1, pageSize = 20) => {
           model: User,
           select: "_id name parentId image",
         },
+      })
+      .populate({
+        path: "community",
+        model: Community,
+        select: "id name image",
       });
 
     const totalThreadsCount = await Thread.countDocuments({
@@ -84,6 +90,11 @@ export const fetchThreadById = async (id: string) => {
           },
         ],
       })
+      .populate({
+        path: "community",
+        model: Community,
+        select: "id name image",
+      })
       .exec();
 
     return thread;
@@ -101,16 +112,28 @@ export const createThread = async ({
   connectToDB();
 
   try {
+    const communityIdObject = await Community.findOne(
+      { id: communityId },
+      { _id: 1 }
+    );
+
     const createdThread = await Thread.create({
       text,
       author,
-      community: null,
+      community: communityIdObject,
     });
 
     // Update User Model
     await User.findByIdAndUpdate(author, {
       $push: { threads: createdThread._id },
     });
+
+    if (communityIdObject) {
+      // Update Community Model
+      await Community.findByIdAndUpdate(communityIdObject, {
+        $push: { threads: createdThread._id },
+      });
+    }
 
     revalidatePath(path);
   } catch (error: any) {
